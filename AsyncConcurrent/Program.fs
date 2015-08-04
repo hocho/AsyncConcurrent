@@ -8,26 +8,47 @@ let main argv =
 
     let rnd = new Random()
 
-    let createTask () =
-     
-        async {
-           let r () = 
+    let getRnd () = 
                 lock 
                     rnd
                     rnd.Next
-           
-           let num = r ()        
 
-           return num
+    let createTask () =
+     
+        async {
+           return getRnd ()
         }
 
-    let result = 
-        RunToList
-            10
-            (   (fun _ -> createTask ()) 
-                |>  Seq.initInfinite 
-                |>  Seq.take 1000)
+    let createTasks count = 
+            (fun _ -> createTask ()) 
+            |>  Seq.initInfinite 
+            |>  Seq.take count
+        
+    let maxThreads = 10
+    let taskCount = 1000
 
-    printfn "%A" result
+    // -----------------------------------------------------------------------------------------------------------------
     
+    let resultList = 
+        RunToList
+            maxThreads
+            (createTasks taskCount)
+
+    printfn ""   
+    printfn "%A" resultList
+
+    // -----------------------------------------------------------------------------------------------------------------
+    
+    let resultArray = 
+        RunToArray
+            maxThreads
+            (createTasks taskCount)
+    printfn ""   
+    printfn "%A" resultArray
+    
+    // -----------------------------------------------------------------------------------------------------------------
+    
+    printfn "Press any key to exit ..."
+    Console.ReadKey() |> ignore
+
     0 // return an integer exit code

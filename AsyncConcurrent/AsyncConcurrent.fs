@@ -5,20 +5,6 @@ open System.Threading
 
 module AsyncConcurrent = 
 
-    let private getCaptureResultsAsList<'a> () =
-
-        let results     = ref list<int * 'a>.Empty
-        let lockObj     = new Object()
-
-        let captureResultsAsList idx result =  
-                lock 
-                    lockObj
-                    (fun () -> results := (idx, result) :: !results)
-            
-        let getResult () = results
-
-        captureResultsAsList, getResult 
-
     // task runner
     let RunImpl<'a, 'b>
             (captureResult                  :   int     ->  'a  -> unit)
@@ -29,28 +15,27 @@ module AsyncConcurrent =
 
         let mutable taskCount = 0
 
-        let rec waitTillCanCreate () = 
-            if taskCount >= maxConcurrent then    
+        let waitTillCanCreate () = 
+            while taskCount >= maxConcurrent do
                 //Async.Sleep 50                     |> Async.RunSynchronously
-                waitTillCanCreate ()
+                ()
             
         // wait until all completed
-        let rec wait () = 
-            if taskCount <> 0 then
+        let wait () = 
+            while taskCount <> 0 do
                 Async.Sleep 500 |> Async.RunSynchronously
-                wait () 
 
         // wrap task                                            
         let taskWrapper idx (task : Async<'a>) =
          
-            Interlocked.Increment(ref taskCount)    |> ignore            
+            Interlocked.Increment(&taskCount)    |> ignore            
 
             async {
                 let! result = task 
 
                 captureResult idx result
 
-                Interlocked.Decrement(ref taskCount) |> ignore
+                Interlocked.Decrement(&taskCount) |> ignore
             }
 
         // schedule
@@ -59,22 +44,36 @@ module AsyncConcurrent =
                             waitTillCanCreate () 
                             taskWrapper idx task)
         |>  Seq.iter (fun t -> Async.Start t)                                
-                    
-        wait () 
+        |>  wait 
     
         getResult ()
 
     // task runner
-    let RunToList<'a> 
+    let RunToList<'a>
             maxConcurrent    
             (tasks                          :   Async<'a> seq)
-                = 
+            = 
 
-        let capture, getResult = getCaptureResultsAsList ()
+        let mutable results = list<int * 'a>.Empty
+        let lockObj         = new Object()
 
-        RunImpl 
-            capture
-            getResult
+        RunImpl
+            (fun idx result -> 
+                lock 
+                    lockObj
+                    (fun () -> results <- (idx, result) :: results))
+            (fun () -> results)
             maxConcurrent
             tasks
 
+    let RunToArray<'a> 
+            maxConcurrent    
+            (tasks                          :   Async<'a> seq)
+            =
+             
+        RunToList<'a>
+            maxConcurrent
+            tasks
+        |> List.sortBy  fst 
+        |> List.map     snd
+        |> List.toArray
