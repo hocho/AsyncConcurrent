@@ -5,6 +5,8 @@ VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "AsyncConcurrent", "AsyncConcurrent\AsyncConcurrent.fsproj", "{7DF11DA9-70B3-4A68-B4F0-F96A27CD6D89}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "AsyncConcurrentTest", "AsyncConcurrentTest\AsyncConcurrentTest.fsproj", "{9B97FE2E-AA59-48F8-8856-50A2B3091AB4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{7DF11DA9-70B3-4A68-B4F0-F96A27CD6D89}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7DF11DA9-70B3-4A68-B4F0-F96A27CD6D89}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7DF11DA9-70B3-4A68-B4F0-F96A27CD6D89}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9B97FE2E-AA59-48F8-8856-50A2B3091AB4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B97FE2E-AA59-48F8-8856-50A2B3091AB4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B97FE2E-AA59-48F8-8856-50A2B3091AB4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B97FE2E-AA59-48F8-8856-50A2B3091AB4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

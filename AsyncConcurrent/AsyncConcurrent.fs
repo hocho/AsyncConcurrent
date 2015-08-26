@@ -6,10 +6,11 @@ open System.Threading
 module AsyncConcurrent = 
 
     // task runner
-    let RunImpl<'a, 'b>
+    let RunSynchronously<'a, 'b>
+            maxConcurrent    
+            taskCreateWaitMs
             (captureResult                  :   int     ->  'a  -> unit)
             (getResult                      :   unit    ->  'b) 
-            maxConcurrent    
             (tasks                          :   Async<'a> seq)
                 = 
 
@@ -17,7 +18,8 @@ module AsyncConcurrent =
 
         let waitTillCanCreate () = 
             while taskCount >= maxConcurrent do
-                //Async.Sleep 50                     |> Async.RunSynchronously
+                if taskCreateWaitMs > 0 then
+                    Async.Sleep taskCreateWaitMs |> Async.RunSynchronously
                 ()
             
         // wait until all completed
@@ -40,40 +42,73 @@ module AsyncConcurrent =
 
         // schedule
         tasks
-        |>  Seq.mapi (fun idx task ->
-                            waitTillCanCreate () 
-                            taskWrapper idx task)
-        |>  Seq.iter (fun t -> Async.Start t)                                
+        |>  Seq.mapi 
+                (fun idx task ->
+                    waitTillCanCreate () 
+                    taskWrapper idx task)
+        |>  Seq.iter 
+                (fun t -> Async.Start t)                                
         |>  wait 
     
         getResult ()
 
-    // task runner
-    let RunToList<'a>
+    let Run<'a, 'b>
             maxConcurrent    
+            taskCreateWaitMs    
+            (captureResult                  :   int     ->  'a  -> unit)
             (tasks                          :   Async<'a> seq)
-            = 
+                = 
 
-        let mutable results = list<int * 'a>.Empty
-        let lockObj         = new Object()
+        let mutable taskCount = 0
 
-        RunImpl
-            (fun idx result -> 
-                lock 
-                    lockObj
-                    (fun () -> results <- (idx, result) :: results))
-            (fun () -> results)
-            maxConcurrent
+        let waitTillCanCreate () = 
+            while taskCount >= maxConcurrent do
+                if taskCreateWaitMs > 0 then
+                    Async.Sleep taskCreateWaitMs |> Async.RunSynchronously
+                ()
+            
+        // wrap task                                            
+        let taskWrapper 
+                idx 
+                (task : Async<'a>) 
+                (cancellationToken          :   CancellationToken) 
+                    = 
+         
+            Interlocked.Increment(&taskCount)    |> ignore            
+
+            async {
+                if not cancellationToken.IsCancellationRequested then
+                
+                    let! result = task 
+
+                    captureResult idx result
+
+                Interlocked.Decrement(&taskCount) |> ignore
+            }
+
+        let cancellationTokenSource = new CancellationTokenSource()
+        let token = cancellationTokenSource.Token
+
+        // return 
+        // async block & isComplete function
+        async {
             tasks
+            |>  Seq.mapi 
+                    (fun idx task ->
+                        waitTillCanCreate () 
+                        taskWrapper idx task token)
+            |>  Seq.takeWhile 
+                    (fun _ -> not token.IsCancellationRequested)                                    
+            |>  Seq.iter 
+                    (fun t -> Async.Start (t, token))       
+            
+            // final decrement will bring the count to -1, to signal completion      
+            Interlocked.Decrement(&taskCount) |> ignore
+        }
+        ,
+        (fun () -> taskCount = -1)
+        ,
+        cancellationTokenSource                                    
+                                            
+                                            
 
-    let RunToArray<'a> 
-            maxConcurrent    
-            (tasks                          :   Async<'a> seq)
-            =
-             
-        RunToList<'a>
-            maxConcurrent
-            tasks
-        |> List.sortBy  fst 
-        |> List.map     snd
-        |> List.toArray
